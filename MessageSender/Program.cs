@@ -1,27 +1,18 @@
 ﻿using MessageSender;
 
-const int defaultPort = 6969;
-var port = int.Parse(args.ElementAtOrDefault(1) ?? defaultPort.ToString());
+// TODO: actual commandline arg parsing
 
-var localEndpoint = IpUtils.GetLocalEndpoint(port);
-
-if (localEndpoint == null)
-{
-    Console.WriteLine("Couldn't get local IP address, aborting");
-    return;
-}
-
-Console.WriteLine($"Current Endpoint: {localEndpoint}");
-
-if (args.Length == 0)
+var mode = args.ElementAtOrDefault(0);
+if (mode == null)
 {
     Console.WriteLine("'wait' or 'detect'");
     return;
 }
 
-var mode = args[0];
+var portArg = args.ElementAtOrDefault(1);
+int? port = portArg != null ? int.Parse(portArg) : null;
 
-var appClient = new AppClient("Unknown");
+var appClient = new AppClient("Unknown host", port);
 
 if (mode == "wait")
 {

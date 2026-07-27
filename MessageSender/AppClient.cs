@@ -12,16 +12,16 @@ public class AppClient
     private readonly string _userName;
     private readonly IPEndPoint _localEndpoint;
 
-    public AppClient(string userName, int port = DefaultPort)
+    public AppClient(string userName, int? port = DefaultPort)
     {
-        var localEndpoint = IpUtils.GetLocalEndpoint(port);
+        var localEndpoint = IpUtils.GetLocalEndpoint(port ?? DefaultPort);
 
         _localEndpoint = localEndpoint ?? throw new ApplicationException("Couldn't get local IP address");
         _userName = userName;
     }
-    
+
     private IPEndPoint BroadcastEndpoint => new(IPAddress.Broadcast, _localEndpoint.Port);
-    
+
     public void SendOne()
     {
         var udpClient = new UdpClient();
@@ -29,7 +29,7 @@ public class AppClient
 
         SendBroadcast(udpClient, IdentMessage);
     }
-    
+
     public Task DetectAvailableDevices()
     {
         var udpClient = new UdpClient();
@@ -68,14 +68,16 @@ public class AppClient
         {
             while (true)
             {
-                var from = new IPEndPoint(0, 0);
-                var receivedBytes = udpClient.Receive(ref from);
+                var messageSource = new IPEndPoint(0, 0);
+                var receivedBytes = udpClient.Receive(ref messageSource);
                 var receivedString = Encoding.UTF8.GetString(receivedBytes);
 
                 Console.WriteLine(
-                    receivedString == "ident" ? $"received ident from: {from}" : $"received other message from: {from}");
+                    receivedString == IdentMessage
+                        ? $"received ident from: {messageSource}"
+                        : $"received other message from: {messageSource}");
 
-                SendMessage(udpClient, from, $"{_localEndpoint} {_userName}");
+                SendMessage(udpClient, messageSource, $"{_localEndpoint} {_userName}");
             }
         });
 
@@ -92,7 +94,7 @@ public class AppClient
     {
         udpClient.Send(messageBytes, messageBytes.Length, BroadcastEndpoint);
     }
-    
+
     private void SendBroadcast(UdpClient udpClient, string message)
     {
         var messageBytes = Encoding.UTF8.GetBytes(message);
