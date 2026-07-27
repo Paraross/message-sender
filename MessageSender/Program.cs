@@ -18,13 +18,9 @@ if (mode == "wait")
 {
     await appClient.WaitAndRespond();
 }
-else if (mode == "send")
-{
-    appClient.SendOne();
-}
 else if (mode == "detect")
 {
-    await appClient.DetectAvailableDevices();
+    appClient.DetectAvailableDevices();
 }
 else
 {

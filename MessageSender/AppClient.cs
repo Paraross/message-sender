@@ -22,41 +22,59 @@ public class AppClient
 
     private IPEndPoint BroadcastEndpoint => new(IPAddress.Broadcast, _localEndpoint.Port);
 
-    public void SendOne()
+    private static (byte[], IPEndPoint)? ReceiveBytes(UdpClient udpClient)
+    {
+        try
+        {
+            var from = new IPEndPoint(0, 0);
+            var receivedBytes = udpClient.Receive(ref from);
+            return (receivedBytes, from);
+        }
+        catch (SocketException ex)
+        {
+            // blocking is fine
+            if (ex.SocketErrorCode == SocketError.WouldBlock)
+            {
+                return null;
+            }
+
+            throw;
+        }
+    }
+
+    public void DetectAvailableDevices()
     {
         var udpClient = new UdpClient();
         udpClient.Client.Bind(_localEndpoint);
 
         SendBroadcast(udpClient, IdentMessage);
-    }
+        
+        udpClient.Client.Blocking = false;
+        
+        var startTime = DateTime.Now;
 
-    public Task DetectAvailableDevices()
-    {
-        var udpClient = new UdpClient();
-        udpClient.Client.Bind(_localEndpoint);
-
-        var receiveResponseTask = Task.Run(() =>
+        while (DateTime.Now < startTime + TimeSpan.FromSeconds(1))
         {
-            while (true)
+            var ret = ReceiveBytes(udpClient);
+            if (ret == null)
             {
-                SendBroadcast(udpClient, IdentMessage);
-
-                var from = new IPEndPoint(0, 0);
-
-                var receivedBytes = udpClient.Receive(ref from);
-                var receivedString = Encoding.UTF8.GetString(receivedBytes);
-
-                var isLoopback = from.Equals(_localEndpoint) && receivedString == IdentMessage;
-                if (!isLoopback)
-                {
-                    Console.WriteLine($"received: '{receivedString}' from {from}");
-                }
-
-                Thread.Sleep(500);
+                Thread.Sleep(TimeSpan.FromMilliseconds(100));
+                continue;
             }
-        });
 
-        return receiveResponseTask;
+            var (receivedBytes, from) = ret.Value;
+            var receivedString = Encoding.UTF8.GetString(receivedBytes);
+            
+            var isLoopback = from.Equals(_localEndpoint) && receivedString == IdentMessage;
+            if (isLoopback)
+            {
+                continue;
+            }
+            
+            Console.WriteLine($"received: '{receivedString}' from {from}");
+            
+            Thread.Sleep(TimeSpan.FromMilliseconds(100));
+        }
     }
 
     public Task WaitAndRespond()
